@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Azure.Storage.Queues;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Runtime.InteropServices.Marshalling;
+using System.Text.Json;
 
 namespace DummyAPI.Controllers
 {
@@ -23,17 +26,30 @@ namespace DummyAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult Post(Contact contact)
+        public async Task<IActionResult> Post(Contact contact)
         {
-            if (string.IsNullOrEmpty(contact.FirstName))
+            if (ModelState.IsValid == false)
             {
-                return BadRequest("Invalid first name");
+                return BadRequest(ModelState);
             }
-            if (string.IsNullOrEmpty(contact.LastName))
+
+            string queueName = "contacts";
+            string? connectionString = _configuration["AzureStorageConnectionString"];
+
+            if (string.IsNullOrEmpty(connectionString))
             {
-                return BadRequest("Invalid last name");
+                return BadRequest("No connection string.");
             }
-            return Ok("Hello " + contact.FirstName + " i am in the air.");
+
+            QueueClient queueClient = new QueueClient(connectionString, queueName);
+
+            //// serialize an object to json
+            string message = JsonSerializer.Serialize(contact);
+
+            // send string message to queue
+            await queueClient.SendMessageAsync(message);
+
+            return Ok("Hello " + contact.FirstName + ". i am in your storage queue.");
         }
     }
 }

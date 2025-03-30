@@ -1,6 +1,7 @@
 ﻿using Azure.Storage.Queues;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices.Marshalling;
 using System.Text.Json;
 
@@ -22,15 +23,25 @@ namespace TicketingAPI.Controllers
         [HttpGet]
         public IActionResult Get()
         {
-            return Ok("Hello i am under water.");
+            return Ok("Hello.");
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post(Ticket ticket)
+        public async Task<IActionResult> Post([FromBody] Ticket ticket)
         {
-            if (ModelState.IsValid == false)
+            if (ticket == null)
             {
-                return BadRequest(ModelState);
+                _logger.LogWarning("Received null payload.");
+                return BadRequest("Payload cannot be null.");
+            }
+
+            // validate
+            var validationContext = new ValidationContext(ticket);
+            var validationResults = new List<ValidationResult>();
+            if (!Validator.TryValidateObject(ticket, validationContext, validationResults, true))
+            {
+                _logger.LogWarning("Invalid ticket data received: {Errors}", string.Join(", ", validationResults.Select(e => e.ErrorMessage)));
+                return BadRequest(validationResults);
             }
 
             string queueName = "tickethub";
@@ -38,18 +49,25 @@ namespace TicketingAPI.Controllers
 
             if (string.IsNullOrEmpty(connectionString))
             {
-                return BadRequest("No connection string.");
+                _logger.LogError("Azure Storage connection string is missing.");
+                return StatusCode(500, "Storage configuration error.");
             }
 
-            QueueClient queueClient = new QueueClient(connectionString, queueName);
-
-            //// serialize an object to json
-            string message = JsonSerializer.Serialize(ticket);
-
-            // send string message to queue
-            await queueClient.SendMessageAsync(message);
-
-            return Ok("Hello " + message + ". i am in your storage queue.");
+            try
+            {
+                var queueClient = new QueueClient(connectionString, queueName);
+                
+                string message = JsonSerializer.Serialize(ticket);
+                await queueClient.SendMessageAsync(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(message)));
+                
+                _logger.LogInformation("Ticket successfully queued.");
+                return Ok("Ticket successfully added to the queue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while sending ticket to the queue.");
+                return StatusCode(500, "Internal server error. Try again later.");
+            }
         }
     }
 }

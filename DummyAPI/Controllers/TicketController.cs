@@ -33,7 +33,7 @@ namespace TicketingAPI.Controllers
                 return BadRequest(ModelState);
             }
 
-            string queueName = "contacts";
+            string queueName = "tickethub";
             string? connectionString = _configuration["AzureStorageConnectionString"];
 
             if (string.IsNullOrEmpty(connectionString))

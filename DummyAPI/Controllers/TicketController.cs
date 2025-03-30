@@ -4,16 +4,16 @@ using Microsoft.AspNetCore.Mvc;
 using System.Runtime.InteropServices.Marshalling;
 using System.Text.Json;
 
-namespace DummyAPI.Controllers
+namespace TicketingAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ContactsController : ControllerBase
+    public class TicketController : ControllerBase
     {
-        private readonly ILogger<ContactsController> _logger;
+        private readonly ILogger<TicketController> _logger;
         private readonly IConfiguration _configuration;
 
-        public ContactsController(ILogger<ContactsController> logger, IConfiguration configuration)
+        public TicketController(ILogger<TicketController> logger, IConfiguration configuration)
         {
             _logger = logger;
             _configuration = configuration;
@@ -26,7 +26,7 @@ namespace DummyAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post(Contact contact)
+        public async Task<IActionResult> Post(Ticket ticket)
         {
             if (ModelState.IsValid == false)
             {
@@ -44,12 +44,12 @@ namespace DummyAPI.Controllers
             QueueClient queueClient = new QueueClient(connectionString, queueName);
 
             //// serialize an object to json
-            string message = JsonSerializer.Serialize(contact);
+            string message = JsonSerializer.Serialize(ticket);
 
             // send string message to queue
             await queueClient.SendMessageAsync(message);
 
-            return Ok("Hello " + contact.FirstName + ". i am in your storage queue.");
+            return Ok("Hello " + message + ". i am in your storage queue.");
         }
     }
 }

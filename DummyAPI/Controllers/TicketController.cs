@@ -1,8 +1,5 @@
 ﻿using Azure.Storage.Queues;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
-using System.Runtime.InteropServices.Marshalling;
 using System.Text.Json;
 
 namespace TicketingAPI.Controllers
@@ -27,21 +24,11 @@ namespace TicketingAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] Ticket ticket)
+        public async Task<IActionResult> Post(Ticket ticket)
         {
-            if (ticket == null)
+            if (ModelState.IsValid == false)
             {
-                _logger.LogWarning("Received null payload.");
-                return BadRequest("Payload cannot be null.");
-            }
-
-            // validate
-            var validationContext = new ValidationContext(ticket);
-            var validationResults = new List<ValidationResult>();
-            if (!Validator.TryValidateObject(ticket, validationContext, validationResults, true))
-            {
-                _logger.LogWarning("Invalid ticket data received: {Errors}", string.Join(", ", validationResults.Select(e => e.ErrorMessage)));
-                return BadRequest(validationResults);
+                return BadRequest(ModelState);
             }
 
             string queueName = "tickethub";
@@ -56,10 +43,10 @@ namespace TicketingAPI.Controllers
             try
             {
                 var queueClient = new QueueClient(connectionString, queueName);
-                
+
                 string message = JsonSerializer.Serialize(ticket);
                 await queueClient.SendMessageAsync(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(message)));
-                
+
                 _logger.LogInformation("Ticket successfully queued.");
                 return Ok("Ticket successfully added to the queue.");
             }
